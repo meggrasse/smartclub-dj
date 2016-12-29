@@ -14,9 +14,8 @@ instance = vlc.Instance()
 player = instance.media_player_new()
 
 # updates the track data stored in the dict
-def update_track_data():
-    for key, val in genre_dict.iteritems():
-        chart_data_dict[key] = json.loads(urllib.urlopen('https://itunes.apple.com/us/rss/topsongs/limit=10/genre=' + str(val) + '/json').read())
+for key, val in genre_dict.iteritems():
+    chart_data_dict[key] = json.loads(urllib.urlopen('https://itunes.apple.com/us/rss/topsongs/limit=10/genre=' + str(val) + '/json').read())
 
 # clear votes
 def clear_vote_count():
