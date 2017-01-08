@@ -87,44 +87,46 @@ def clear_vote_count():
 	scream_res = requests.get('http://smartclub.herokuapp.com/resetscreamtracker')
 
 # select a new track
-def select_next_track(track_np, X_np, y):
+def select_next_track():
+	global not_played
+	global y
 	# buffer to ensure we have some data before we start making selections
-	if sum(y) < -35:
-		play_random(track_np, X_np, y)
+	if sum(y) < -45:
+		play_random()
 	# otherwise, use the model to make a decision
 	else:
 		y_ = np.array(y)
-		X_np_ = np.array(X_np).astype(np.float)
+		X_np_ = np.array(not_played.values()).astype(np.float)
 		model = GaussianNB()
 		model.fit(X, y_)
 		predicted = model.predict(X_np_)
 		to_play = np.where(predicted == 1)[0]
 		if len(to_play) > 0:
 			track_id_index = to_play[0]
-			track_id = track_np[track_id_index]
+			track_id = not_played.keys()[track_id_index]
 			# remove track from list of unplayed tracks
-			index_np = track_np.index(track_id)
-			del X_np[index_np]
-			track_np.remove(track_id)
-			play(track_id, track_np, X_np, y)
+			not_played.pop(track_id, None)
+			play(track_id)
 		else:
-			play_random(track_np, X_np, y)
+			play_random()
 
-def play_random(track_np, X_np, y):
-	random_index = int(math.floor(random.random() * len(track_np)))
-	track_id = track_np[random_index]
+def play_random():
+	global not_played
+	global y
+	random_index = int(math.floor(random.random() * len(not_played.keys())))
+	track_id = not_played.keys()[random_index]
 	# remove track from list of unplayed tracks
-	index_np = track_np.index(track_id)
-	del X_np[index_np]
-	track_np.remove(track_id)
-	play(track_id, track_np, X_np, y)
+	not_played.pop(track_id, None)
+	play(track_id)
 
 def update_crowd_feedback():
 	vote_res = requests.get('http://smartclub.herokuapp.com/getvotecount')
 	scream_res = requests.get('http://smartclub.herokuapp.com/wasthereascream')
 	return (json.loads(vote_res.text), scream_res)
 
-def play(track_id, track_np, X_np, y):
+def play(track_id):
+	global not_played
+	global y
 	clear_vote_count()
 	song_url = track_data['returned_chart_data'][track_id]['preview_url']
 	media = instance.media_new(song_url)
@@ -148,7 +150,7 @@ def play(track_id, track_np, X_np, y):
 		# log that they don't like it
 		else:
 			y[index] = 0
-		return select_next_track(track_np, X_np, y)
+		return select_next_track()
 
 # let's get started
 if len(sys.argv) > 1 and sys.argv[1] == 'update':
@@ -160,11 +162,13 @@ X = []
 for id in track_data['returned_chart_data'].keys():
 	X.append([track_data['returned_chart_data'][id]['genre'], track_data['returned_chart_data'][id]['bass_cluster'], track_data['returned_chart_data'][id]['treble_cluster']])
 y = [-1] * 50
-track_np = track_data['returned_chart_data'].keys()
-X_np = X
+# keep track of the tracks that haven't played yet
+not_played = {}
+for i in range(50):
+	not_played[track_data['returned_chart_data'].keys()[i]] = X[i]
 X = np.array(X).astype(np.float)
 # start with a random track
 random_index = int(math.floor(random.random() * len(track_data['returned_chart_data'].keys())))
-play(track_data['returned_chart_data'].keys()[random_index], track_np, X_np, y)
+play(track_data['returned_chart_data'].keys()[random_index])
 
 
