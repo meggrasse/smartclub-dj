@@ -1,5 +1,10 @@
 # SmartClub - DJ
 
+This is the DJ module of the SmartClub project. This module gets sentiment data from the server, and uses that data
+to determine which track to play next, finding similar tracks though filtering out and comparing the bass lines and treble lines, and using ML to match the crowd's taste.
+
+The master repo for this project is located at https://github.com/meggrasse/smartclub.
+
 ## Requirements
 
 Python: written using Python 2.7.10. Should work on all versions of Python 2.7.
