@@ -1,0 +1,6 @@
+requests==2.11.1
+pydub==0.16.6
+librosa==0.2.0
+dtw==1.2
+scikit-learn==0.18.1
+numpy==1.11.0
