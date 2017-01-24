@@ -12,7 +12,9 @@ import librosa
 from dtw import dtw
 from numpy.linalg import norm
 from sklearn.naive_bayes import GaussianNB
+from sklearn.cluster import DBSCAN
 import numpy as np
+import time
 
 instance = vlc.Instance()
 player = instance.media_player_new()
@@ -22,6 +24,8 @@ def updatetrackdata():
 	audio_info_dict = {}
 	track_data = {'returned_chart_data' : {}, 'cluster_data' : {'bass' : [], 'treble' : []}, 'genre_data' : {}}
 	track_id_list = []
+	X_low_pass = pickle.load(open('low_pass.p', 'rb' ))
+	X_high_pass = pickle.load(open('high_pass.p', 'rb' ))
 	for ii in range(50):
 		track_id = chart_data['feed']['entry'][ii]['id']['attributes']['im:id']
 		track_id_list.append(track_id)
@@ -40,42 +44,29 @@ def updatetrackdata():
 		y_low_pass, sr_low_pass = librosa.load('tracks/low-pass/' + str(track_id) + '.m4a') 
 		y_high_pass, sr_high_pass = librosa.load('tracks/high-pass/' + str(track_id) + '.m4a')
 		#store mfcc for comparison
-		audio_info_dict[str(track_id) + '_low_pass'] = librosa.feature.mfcc(y_low_pass, sr_low_pass).T
-		audio_info_dict[str(track_id) + '_high_pass'] = librosa.feature.mfcc(y_high_pass, sr_high_pass).T
-	#populate returned chart data array by comparing songs
-	for jj in range(50):
-		for kk in range(50):
-			if jj > kk:
-				x = audio_info_dict[str(track_id_list[jj]) + '_low_pass'].reshape(-1, 1)
-				y = audio_info_dict[str(track_id_list[kk]) + '_low_pass'].reshape(-1, 1)
-				#calculate normalized distance between the mfccs for the tracks according to filter, and add to dictionary if small
-				dist_lp, _, _, _ = dtw(x, y, dist=lambda x, y: norm(x - y, ord=1))
-				if dist_lp < 0.025:
-					#if there is no cluster yet, make one
-					if track_data['returned_chart_data'][track_id_list[kk]]['bass_cluster'] == -1:
-						track_data['returned_chart_data'][track_id_list[jj]]['bass_cluster'] = len(track_data['cluster_data']['bass'])
-						track_data['returned_chart_data'][track_id_list[kk]]['bass_cluster'] = len(track_data['cluster_data']['bass'])
-						track_data['cluster_data']['bass'].append([track_id_list[jj], track_id_list[kk]])
-					#otherwise add it to cluster
-					elif track_data['returned_chart_data'][track_id_list[jj]]['bass_cluster'] == -1:
-						track_data['returned_chart_data'][track_id_list[jj]]['bass_cluster'] = track_data['returned_chart_data'][track_id_list[kk]]['bass_cluster']
-						track_data['cluster_data']['bass'][track_data['returned_chart_data'][track_id_list[kk]]['bass_cluster']].append(track_id_list[jj])
-				x = audio_info_dict[str(track_id_list[jj]) + '_high_pass'].reshape(-1, 1)
-				y = audio_info_dict[str(track_id_list[kk]) + '_high_pass'].reshape(-1, 1)
-				#calculate normalized distance for highpass, and add to dictionary if small
-				dist_hp, _, _, _ = dtw(x, y, dist=lambda x, y: norm(x - y, ord=1))
-				if dist_hp < 0.00025:
-					#if there is no cluster yet, make one
-					if track_data['returned_chart_data'][track_id_list[kk]]['treble_cluster'] == -1:
-						track_data['returned_chart_data'][track_id_list[jj]]['treble_cluster'] = len(track_data['cluster_data']['treble'])
-						track_data['returned_chart_data'][track_id_list[kk]]['treble_cluster'] = len(track_data['cluster_data']['treble'])
-						track_data['cluster_data']['treble'].append([track_id_list[jj], track_id_list[kk]])
-					#otherwise add it to cluster
-					elif track_data['returned_chart_data'][track_id_list[jj]]['treble_cluster'] == -1:
-						track_data['returned_chart_data'][track_id_list[jj]]['treble_cluster'] = track_data['returned_chart_data'][track_id_list[kk]]['treble_cluster']
-						track_data['cluster_data']['treble'][track_data['returned_chart_data'][track_id_list[kk]]['treble_cluster']].append(track_id_list[jj])
-	pickle.dump(track_data, open('track_data.p', 'wb'))
-	return track_data
+		X_low_pass.append(librosa.feature.mfcc(y_low_pass, sr_low_pass).T)
+		X_high_pass.append(librosa.feature.mfcc(y_high_pass, sr_high_pass).T)
+		#populate returned chart data array by comparing songs
+	pickle.dump(X_low_pass, open('low_pass.p', 'wb'))
+	pickle.dump(X_high_pass, open('high_pass.p', 'wb'))
+	print "finished pickling"
+
+	t0 = time.time()
+
+	db_low_pass = DBSCAN().fit(X_low_pass)
+	core_samples_mask = np.zeros_like(db_low_pass.labels_, dtype=bool)
+	core_samples_mask[db_low_pass.core_sample_indices_] = True
+
+	db_high_pass = DBSCAN().fit(X_high_pass)
+	core_samples_mask = np.zeros_like(db_high_pass.labels_, dtype=bool)
+	core_samples_mask[db_high_pass.core_sample_indices_] = True
+
+	t1 = time.time()
+
+	print t1 - t0
+
+	#pickle.dump(track_data, open('track_data.p', 'wb'))
+	#return track_data
 
 def get_track_data():
 	track_data = pickle.load(open('track_data.p', 'rb' ))
