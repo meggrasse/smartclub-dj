@@ -134,7 +134,7 @@ def play(track_id):
 		votes, scream_res = update_crowd_feedback()
 		if ((votes['upvotes'] > votes['downvotes']) or (scream_res.text == "Yes")):
 			print "We like it!"
-			time.sleep(20)
+			time.sleep(10)
 			print "Let's hear a similar track!"
 			select_next_track(track_id, 1)
 		else:
